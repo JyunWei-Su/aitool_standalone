@@ -32,6 +32,10 @@ if [ "$QMD_VERSION" != "latest" ] && [ -n "$QMD_VERSION" ]; then
   PKG_SPEC="@tobilu/qmd@${QMD_VERSION}"
 fi
 echo "Installing ${PKG_SPEC}..."
+# Force native modules (better-sqlite3) to compile from source against the
+# local glibc 2.28, instead of fetching a prebuilt binary that needs 2.29.
+export npm_config_build_from_source=true
+export PYTHON=/usr/bin/python3
 ./.node/bin/npm install "$PKG_SPEC"
 
 cat > qmd << 'WRAPPER'

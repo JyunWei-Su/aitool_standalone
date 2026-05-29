@@ -98,7 +98,7 @@ jobs:
       options: --privileged
     steps:
       - name: Install build tools
-        run: dnf install -y git wget curl tar xz jq findutils sudo
+        run: dnf install -y git wget curl tar xz jq findutils sudo gcc gcc-c++ make python3
       - uses: actions/checkout@v4
       - name: Build ${{ inputs.package_name }}
         env:

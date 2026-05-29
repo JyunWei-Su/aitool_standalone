@@ -30,11 +30,13 @@ if [ "$TYPE" = "binary" ]; then
   wget -q "https://github.com/${REPO}/releases/download/${VERSION}/${ASSET_PATTERN}" \
        -O upstream.tar.gz
   echo "Extracting..."
-  tar xzf upstream.tar.gz -C upstream --strip-components=1 2>/dev/null || \
+  # Do NOT strip components: some upstreams ship the binary at the archive
+  # root (e.g. rtk), where --strip-components=1 would delete it entirely.
+  # find recurses regardless, so nested layouts (e.g. ripgrep) still work.
   tar xzf upstream.tar.gz -C upstream
   BINARY=$(find upstream -type f -name "${NAME}" | head -1)
   if [ -z "$BINARY" ]; then
-    BINARY=$(find upstream -maxdepth 3 -type f -executable ! -name "*.so*" ! -name "*.md" ! -name "LICENSE*" | head -1)
+    BINARY=$(find upstream -type f -perm -u+x ! -name "*.so*" ! -name "*.md" ! -name "*.txt" ! -name "LICENSE*" | head -1)
   fi
   if [ -z "$BINARY" ]; then
     echo "ERROR: Could not find '${NAME}' binary in upstream tarball"

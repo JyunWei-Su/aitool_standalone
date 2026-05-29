@@ -32,9 +32,13 @@ pushd build
 echo "Installing @playwright/test@${PLAYWRIGHT_VERSION}..."
 ./.node/bin/npm install "@playwright/test@${PLAYWRIGHT_VERSION}"
 
-echo "Installing browsers (with system deps): ${BROWSERS}..."
+echo "Installing browsers: ${BROWSERS}..."
+# NOTE: no --with-deps. Playwright's dependency installer only supports
+# apt-based distros; on Oracle/RHEL it falls back to apt-get and fails.
+# System libraries are installed on the RHEL target instead (see DEPS.txt
+# written below). The browser binaries themselves are bundled here.
 export PLAYWRIGHT_BROWSERS_PATH=0
-./.node/bin/npx playwright install --with-deps ${BROWSERS}
+./.node/bin/npx playwright install ${BROWSERS}
 
 cat > playwright << 'WRAPPER'
 #!/bin/bash
@@ -47,6 +51,19 @@ WRAPPER
 chmod +x playwright
 
 popd
+
+echo "Writing RHEL dependency notes..."
+cat > build/DEPS.txt << 'DEPS'
+Playwright browsers need these system libraries on the RHEL 8.10 target.
+Run once as root (or with sudo):
+
+  dnf install -y \
+    nss nspr atk at-spi2-atk at-spi2-core cups-libs libdrm \
+    libxkbcommon libXcomposite libXdamage libXfixes libXrandr \
+    mesa-libgbm pango cairo alsa-lib libXtst gtk3 dbus-glib
+
+After that, ./bin/playwright works without any further setup.
+DEPS
 
 echo "Bundling..."
 rm -rf dist && mkdir dist
