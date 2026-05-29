@@ -10,7 +10,11 @@ echo " Node.js: ${NODEJS_VERSION}"
 echo " qmd:     ${QMD_VERSION}"
 echo "========================================"
 
-export PATH="$PWD/build/.node/bin:/usr/bin"
+if [ -f /opt/rh/gcc-toolset-12/enable ]; then
+  source /opt/rh/gcc-toolset-12/enable
+fi
+
+export PATH="$PWD/build/.node/bin:${PATH:-}"
 mkdir -p tmp
 
 NODEJS_URL="https://nodejs.org/dist/v${NODEJS_VERSION}/node-v${NODEJS_VERSION}-linux-x64.tar.xz"
