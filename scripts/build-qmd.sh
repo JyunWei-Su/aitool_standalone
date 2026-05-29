@@ -32,10 +32,15 @@ if [ "$QMD_VERSION" != "latest" ] && [ -n "$QMD_VERSION" ]; then
   PKG_SPEC="@tobilu/qmd@${QMD_VERSION}"
 fi
 echo "Installing ${PKG_SPEC}..."
-# Force native modules (better-sqlite3) to compile from source against the
-# local glibc 2.28, instead of fetching a prebuilt binary that needs 2.29.
+# Force native modules (better-sqlite3, tree-sitter-*) to compile from source
+# against the local glibc 2.28, instead of fetching a prebuilt binary that
+# needs 2.29.
 export npm_config_build_from_source=true
-export PYTHON=/usr/bin/python3
+# node-gyp's bundled gyp uses the walrus operator (:=), which needs Python
+# >= 3.8. Oracle Linux 8's default python3 is 3.6.8, so point node-gyp at
+# python3.11 (installed in the build container) instead.
+export PYTHON=/usr/bin/python3.11
+export npm_config_python=/usr/bin/python3.11
 ./.node/bin/npm install "$PKG_SPEC"
 
 cat > qmd << 'WRAPPER'
