@@ -11,6 +11,17 @@ packages:
     repo: rtk-ai/rtk
     asset_pattern: rtk-x86_64-unknown-linux-musl.tar.gz
 
+  # ── opencode（二進位）───────────────────────────────
+  - name: opencode
+    type: binary
+    repo: anomalyco/opencode
+    asset_pattern: opencode-linux-x64.tar.gz
+
+  # ── node（自訂腳本，完整 runtime）──────────────────
+  - name: node
+    type: custom
+    script: scripts/build-node.sh
+
   # ── qmd（自訂腳本，npm 套件）────────────────────────
   - name: qmd
     type: custom

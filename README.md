@@ -8,6 +8,8 @@ GitHub Actions 自動打包離線工具集。本地不需要任何 `npm install`
 |------|------|------|
 | [rg](https://github.com/BurntSushi/ripgrep) | 快速全文搜尋工具（ripgrep），musl 靜態二進位 | binary |
 | [rtk](https://github.com/rtk-ai/rtk) | AI CLI 工具，musl 靜態二進位 | binary |
+| [opencode](https://github.com/anomalyco/opencode) | AI coding agent CLI，GitHub Release 二進位 | binary |
+| [node](https://nodejs.org) | Node.js LTS runtime，完整 Linux x64 runtime | custom |
 | [qmd](https://github.com/tobi/qmd) | 本地 CLI 語意搜尋引擎（docs / notes / code） | custom |
 | [playwright](https://playwright.dev) | 含瀏覽器的獨立 Playwright 執行環境 | custom |
 
@@ -16,12 +18,6 @@ GitHub Actions 自動打包離線工具集。本地不需要任何 `npm install`
 ### 自動建置（每週日 00:00 UTC）
 
 Scheduled workflow 會自動建置所有套件，並將成品上傳為 GitHub Actions artifact（保留 90 天）。
-
-### 手動觸發單一套件
-
-1. 前往 **Actions → Manual Build Single Package → Run workflow**
-2. 填入 `package_name`（需與 `packages.yml` 中的 `name` 對應）
-3. 選填 `version`（留空或 `latest` 取最新版）
 
 ### 套件 bundle 使用方式
 
@@ -42,6 +38,17 @@ packages:
     type: binary
     repo: owner/repo
     asset_pattern: my-tool-{VERSION}-linux-amd64.tar.gz
+
+  # GitHub Release 二進位（不含版本號的檔名）
+  - name: opencode
+    type: binary
+    repo: anomalyco/opencode
+    asset_pattern: opencode-linux-x64.tar.gz
+
+  # 完整 runtime 的自訂腳本
+  - name: node
+    type: custom
+    script: scripts/build-node.sh
 
   # 自訂腳本
   - name: my-tool
@@ -73,12 +80,12 @@ packages:
 aitool_standalone/
 ├── packages.yml                    # 套件定義
 ├── scripts/
+│   ├── build-node.sh               # Node.js 自訂建置
 │   ├── build.sh                    # 標準類型通用建置腳本
 │   ├── build-playwright.sh         # Playwright 自訂建置
 │   └── build-qmd.sh                # qmd 自訂建置
 └── .github/workflows/
-    ├── scheduled-build.yml         # 每週自動建置全部套件
-    └── manual-build.yml            # 手動觸發單一套件
+  └── scheduled-build.yml         # 每週自動建置全部套件
 ```
 
 ## Artifacts
