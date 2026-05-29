@@ -43,12 +43,23 @@ export PLAYWRIGHT_BROWSERS_PATH=0
 cat > playwright << 'WRAPPER'
 #!/bin/bash
 set -eu
-SCRIPT_PATH="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
+SOURCE="$0"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -- "$(dirname "$SOURCE")" >/dev/null 2>&1; pwd -P)"
+  SOURCE="$(readlink "$SOURCE")"
+  case "$SOURCE" in
+    /*) ;;
+    *) SOURCE="$DIR/$SOURCE" ;;
+  esac
+done
+SCRIPT_PATH="$(cd -- "$(dirname "$SOURCE")" >/dev/null 2>&1; pwd -P)"
 export PATH="$SCRIPT_PATH/.node/bin:$PATH"
 export PLAYWRIGHT_BROWSERS_PATH="$SCRIPT_PATH/node_modules/playwright-core/.local-browsers"
-exec npx playwright "$@"
+exec "$SCRIPT_PATH/node_modules/.bin/playwright" "$@"
 WRAPPER
 chmod +x playwright
+mkdir -p bin
+ln -s ../playwright bin/playwright
 
 popd
 

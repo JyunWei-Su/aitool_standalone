@@ -23,6 +23,14 @@ Scheduled workflow 會自動建置所有套件，並將成品上傳為 GitHub Ac
 2. 填入 `package_name`（需與 `packages.yml` 中的 `name` 對應）
 3. 選填 `version`（留空或 `latest` 取最新版）
 
+### 套件 bundle 使用方式
+
+解壓縮 `aitool_standalone-<YYYYMMDD>.tar.gz` 後：
+
+- `bash` / `sh`：在 bundle 根目錄執行 `source setup.sh`
+- `csh` / `tcsh`：優先先 `cd` 到 bundle 根目錄再執行 `source setup.csh`
+- 若要從其他目錄 `source`，先設定 `AITOOL_BUNDLE_DIR=/path/to/bundle`
+
 ## 新增套件
 
 編輯 `packages.yml`：
@@ -79,5 +87,8 @@ aitool_standalone/
 
 - `<name>-standalone-x86_64-linux` — 各套件獨立成品
 - `aitool_standalone-bundle-<YYYYMMDD>.tar.gz` — 全套件合併包（僅 scheduled build）
+
+bundle 內同時提供 `setup.sh` 與 `setup.csh`，分別給 `bash` / `sh` 與 `csh` / `tcsh` 使用。
+`setup.csh` 會優先使用目前目錄，若不在 bundle 根目錄，請先設定 `AITOOL_BUNDLE_DIR`。
 
 Build summary 會列出本次打包的所有套件與版本。

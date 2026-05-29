@@ -50,11 +50,22 @@ export npm_config_python=/usr/bin/python3.11
 cat > qmd << 'WRAPPER'
 #!/bin/bash
 set -eu
-SCRIPT_PATH="$(cd -- "$(dirname "$0")" >/dev/null 2>&1; pwd -P)"
+SOURCE="$0"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -- "$(dirname "$SOURCE")" >/dev/null 2>&1; pwd -P)"
+  SOURCE="$(readlink "$SOURCE")"
+  case "$SOURCE" in
+    /*) ;;
+    *) SOURCE="$DIR/$SOURCE" ;;
+  esac
+done
+SCRIPT_PATH="$(cd -- "$(dirname "$SOURCE")" >/dev/null 2>&1; pwd -P)"
 export PATH="$SCRIPT_PATH/.node/bin:$PATH"
 exec "$SCRIPT_PATH/node_modules/.bin/qmd" "$@"
 WRAPPER
 chmod +x qmd
+mkdir -p bin
+ln -s ../qmd bin/qmd
 
 popd
 

@@ -163,6 +163,24 @@ jobs:
           } > "$BUNDLE/setup.sh"
           chmod +x "$BUNDLE/setup.sh"
 
+          # C shell users: source this after cd'ing into the bundle root.
+          {
+            echo '#!/bin/csh'
+            echo 'if (! $?AITOOL_BUNDLE_DIR) then'
+            echo '  if (-d ./bin) then'
+            echo '    setenv AITOOL_BUNDLE_DIR "$cwd"'
+            echo '  else'
+            echo '    echo "aitool: set AITOOL_BUNDLE_DIR to the bundle root, then source setup.csh"'
+            echo '    echo "Example: setenv AITOOL_BUNDLE_DIR /path/to/bundle; source /path/to/bundle/setup.csh"'
+            echo '  endif'
+            echo 'endif'
+            echo 'if ($?AITOOL_BUNDLE_DIR) then'
+            echo '  setenv PATH "$AITOOL_BUNDLE_DIR/bin:$PATH"'
+            echo '  echo "aitool: added $AITOOL_BUNDLE_DIR/bin to PATH"'
+            echo 'endif'
+          } > "$BUNDLE/setup.csh"
+          chmod +x "$BUNDLE/setup.csh"
+
           sha256sum "$BUNDLE"/bin/* > "$BUNDLE/SHA256SUMS" 2>/dev/null || true
           tar czf "${BUNDLE}.tar.gz" "$BUNDLE/"
           sha256sum "${BUNDLE}.tar.gz" > SHA256SUMS
