@@ -1,0 +1,22 @@
+packages:
+  # ── rg / ripgrep（二進位）───────────────────────────
+  - name: rg
+    type: binary
+    repo: BurntSushi/ripgrep
+    asset_pattern: ripgrep-{VERSION}-x86_64-unknown-linux-musl.tar.gz
+
+  # ── rtk（二進位）────────────────────────────────────
+  - name: rtk
+    type: binary
+    repo: rtk-ai/rtk
+    asset_pattern: rtk-x86_64-unknown-linux-musl.tar.gz
+
+  # ── qmd（自訂腳本，npm 套件）────────────────────────
+  - name: qmd
+    type: custom
+    script: scripts/build-qmd.sh
+
+  # ── Playwright Standalone（自訂腳本）───────────────
+  - name: playwright
+    type: custom
+    script: scripts/build-playwright.sh
