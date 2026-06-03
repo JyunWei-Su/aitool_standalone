@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Setup Node.js
         if: matrix.type == 'node'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node_version || '22' }}
       - name: Setup Go
@@ -85,7 +85,7 @@ jobs:
             "${{ matrix.type }}" \
             "${{ matrix.version || 'latest' }}"
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.name }}-x86_64-linux
           path: dist/*
@@ -110,7 +110,7 @@ jobs:
           chmod +x ${{ matrix.script }}
           bash ${{ matrix.script }}
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.name }}-standalone-x86_64-linux
           path: dist/*
@@ -136,15 +136,21 @@ jobs:
             artifact=$(basename "$pkg_dir")
 
             if [[ "$artifact" == *"-standalone-x86_64-linux" ]]; then
-              # Custom package: extract tarball into lib/<name>/
               pkg_name="${artifact%%-standalone-x86_64-linux}"
               tarball=$(find "$pkg_dir" -maxdepth 1 -name "*.tar.gz" | head -1)
-              mkdir -p "$BUNDLE/lib/$pkg_name"
-              tar xzf "$tarball" -C "$BUNDLE/lib/$pkg_name"
-              # Wrapper in bin/ that delegates to the real wrapper
-              printf '#!/bin/bash\nSCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\nexec "$SCRIPT_DIR/../lib/%s/%s" "$@"\n' \
-                "$pkg_name" "$pkg_name" > "$BUNDLE/bin/$pkg_name"
-              chmod +x "$BUNDLE/bin/$pkg_name"
+              file_count=$(tar tzf "$tarball" | grep -cv '/$')
+              if [ "$file_count" -eq 1 ]; then
+                # Single-file package: extract directly into bin/
+                tar xzf "$tarball" -C "$BUNDLE/bin"
+                chmod +x "$BUNDLE/bin/$pkg_name"
+              else
+                # Multi-file package: extract into lib/ with delegate in bin/
+                mkdir -p "$BUNDLE/lib/$pkg_name"
+                tar xzf "$tarball" -C "$BUNDLE/lib/$pkg_name"
+                printf '#!/bin/bash\nSCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\nexec "$SCRIPT_DIR/../lib/%s/%s" "$@"\n' \
+                  "$pkg_name" "$pkg_name" > "$BUNDLE/bin/$pkg_name"
+                chmod +x "$BUNDLE/bin/$pkg_name"
+              fi
 
             elif [[ "$artifact" == *"-x86_64-linux" ]]; then
               # Binary package: single executable
@@ -203,7 +209,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Build date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: aitool_standalone-bundle
           path: |
