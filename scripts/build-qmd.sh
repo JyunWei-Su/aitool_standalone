@@ -70,36 +70,9 @@ echo "  EMBED:    ${EMBED_URI}"
 echo "  GENERATE: ${GENERATE_URI}"
 echo "  RERANK:   ${RERANK_URI}"
 
-# Download GGUF models via huggingface_hub (handles XET storage correctly)
-# HF_HUB_DISABLE_XET=1 forces standard CDN path, bypassing cas-bridge.xethub.hf.co
-/usr/bin/python3.11 -m ensurepip --upgrade 2>/dev/null || true
-/usr/bin/python3.11 -m pip install -q huggingface_hub
-export HF_HUB_DISABLE_XET=1
+# Models are not bundled — too large for GitHub's 2 GB asset limit.
+# Create an empty placeholder directory; users place .gguf files here manually.
 mkdir -p models
-
-cat > /tmp/hf_download.py << 'PYEOF'
-import sys
-from huggingface_hub import hf_hub_download
-parts = sys.argv[1].split('/', 2)   # user/repo/filename
-repo_id  = parts[0] + '/' + parts[1]
-filename = parts[2]
-print(f"  {repo_id} / {filename}")
-hf_hub_download(repo_id, filename, local_dir='models')
-PYEOF
-
-for uri in "${EMBED_URI}" "${GENERATE_URI}" "${RERANK_URI}"; do
-  if [ -z "$uri" ]; then
-    echo "WARNING: empty model URI, skipping download"
-    continue
-  fi
-  filename="${uri##*/}"
-  if [ ! -f "models/${filename}" ]; then
-    echo "Downloading ${filename}..."
-    /usr/bin/python3.11 /tmp/hf_download.py "${uri#hf:}"
-  else
-    echo "Already cached: ${filename}"
-  fi
-done
 
 EMBED_FILENAME="${EMBED_URI##*/}"
 GENERATE_FILENAME="${GENERATE_URI##*/}"
@@ -135,6 +108,14 @@ VERSION_TAG=$( build/.node/bin/node \
 
 echo "Bundling qmd-standalone-${VERSION_TAG}..."
 rm -rf dist && mkdir dist
+
+# Record model URIs for release notes (hf: URIs → download links)
+{
+  [ -n "$EMBED_URI" ]    && echo "EMBED_URI=${EMBED_URI}"    || true
+  [ -n "$GENERATE_URI" ] && echo "GENERATE_URI=${GENERATE_URI}" || true
+  [ -n "$RERANK_URI" ]   && echo "RERANK_URI=${RERANK_URI}"   || true
+} > dist/QMD_MODELS.txt
+
 pushd build
 tar czf "../dist/qmd-standalone-${VERSION_TAG}-x86_64-linux.tar.gz" .
 popd
