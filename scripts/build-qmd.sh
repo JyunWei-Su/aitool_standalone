@@ -55,11 +55,16 @@ cat > /tmp/extract_models.js << 'JSEOF'
 const src = require('fs').readFileSync(
   './node_modules/@tobilu/qmd/dist/llm.js', 'utf8');
 function extract(name) {
-  const idx = src.indexOf(name);
-  if (idx === -1) return '';
-  const segment = src.slice(idx, idx + 300);
-  const m = segment.match(/hf:[A-Za-z0-9_.\/\-]+/);
-  return m ? m[0] : '';
+  let pos = 0;
+  while (pos < src.length) {
+    const idx = src.indexOf(name, pos);
+    if (idx === -1) break;
+    const segment = src.slice(idx, idx + 800);
+    const m = segment.match(/hf:[A-Za-z0-9_.\/\-]+/);
+    if (m) return m[0];
+    pos = idx + 1;
+  }
+  return '';
 }
 console.log(extract('QMD_EMBED_MODEL'));
 console.log(extract('QMD_GENERATE_MODEL'));
