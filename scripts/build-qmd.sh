@@ -131,6 +131,13 @@ VERSION_TAG=$( build/.node/bin/node \
 echo "Bundling qmd-standalone-${VERSION_TAG}..."
 rm -rf dist && mkdir dist
 
+# Write model filenames so the bundle step can inject QMD_*_MODEL into setup.sh/setup.csh
+{
+  [ -n "${EMBED_FILENAME:-}"    ] && echo "QMD_EMBED_MODEL_FILE=${EMBED_FILENAME}"       || true
+  [ -n "${GENERATE_FILENAME:-}" ] && echo "QMD_GENERATE_MODEL_FILE=${GENERATE_FILENAME}" || true
+  [ -n "${RERANK_FILENAME:-}"   ] && echo "QMD_RERANK_MODEL_FILE=${RERANK_FILENAME}"     || true
+} > dist/QMD_MODEL_NAMES.txt
+
 pushd build
 # Code-only tarball — models/ excluded (packaged separately below)
 tar czf "../dist/qmd-standalone-${VERSION_TAG}-x86_64-linux.tar.gz" \

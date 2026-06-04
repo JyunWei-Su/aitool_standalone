@@ -186,6 +186,31 @@ jobs:
           } > "$BUNDLE/setup.csh"
           chmod +x "$BUNDLE/setup.csh"
 
+          # Inject QMD_*_MODEL env vars if qmd was built with known model filenames
+          QMD_NAMES=$(find all-packages/ -name "QMD_MODEL_NAMES.txt" 2>/dev/null | head -1)
+          if [ -f "$QMD_NAMES" ]; then
+            EMBED_F="" GEN_F="" RERANK_F=""
+            while IFS='=' read -r key val; do
+              case "$key" in
+                QMD_EMBED_MODEL_FILE)    EMBED_F="$val"  ;;
+                QMD_GENERATE_MODEL_FILE) GEN_F="$val"    ;;
+                QMD_RERANK_MODEL_FILE)   RERANK_F="$val" ;;
+              esac
+            done < "$QMD_NAMES"
+            {
+              echo "export QMD_EMBED_MODEL=\"\${QMD_EMBED_MODEL:-\$BUNDLE_DIR/lib/qmd/models/${EMBED_F}}\""
+              echo "export QMD_GENERATE_MODEL=\"\${QMD_GENERATE_MODEL:-\$BUNDLE_DIR/lib/qmd/models/${GEN_F}}\""
+              echo "export QMD_RERANK_MODEL=\"\${QMD_RERANK_MODEL:-\$BUNDLE_DIR/lib/qmd/models/${RERANK_F}}\""
+            } >> "$BUNDLE/setup.sh"
+            {
+              echo "if (\$?AITOOL_BUNDLE_DIR) then"
+              echo "  if (! \$?QMD_EMBED_MODEL)    setenv QMD_EMBED_MODEL    \"\$AITOOL_BUNDLE_DIR/lib/qmd/models/${EMBED_F}\""
+              echo "  if (! \$?QMD_GENERATE_MODEL) setenv QMD_GENERATE_MODEL \"\$AITOOL_BUNDLE_DIR/lib/qmd/models/${GEN_F}\""
+              echo "  if (! \$?QMD_RERANK_MODEL)   setenv QMD_RERANK_MODEL   \"\$AITOOL_BUNDLE_DIR/lib/qmd/models/${RERANK_F}\""
+              echo "endif"
+            } >> "$BUNDLE/setup.csh"
+          fi
+
           sha256sum "$BUNDLE"/bin/* > "$BUNDLE/SHA256SUMS" 2>/dev/null || true
           tar czf "${BUNDLE}.tar.gz" "$BUNDLE/"
           echo "  bundle size: $(du -sh "${BUNDLE}.tar.gz" | cut -f1)"
