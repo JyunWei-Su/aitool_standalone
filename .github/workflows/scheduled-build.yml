@@ -187,8 +187,25 @@ jobs:
           chmod +x "$BUNDLE/setup.csh"
 
           sha256sum "$BUNDLE"/bin/* > "$BUNDLE/SHA256SUMS" 2>/dev/null || true
+
+          # qmd models can exceed GitHub's 2 GB release-asset limit.
+          # Move them out of the main bundle into a separate tarball.
+          if [ -d "$BUNDLE/lib/qmd/models" ] && [ "$(ls -A "$BUNDLE/lib/qmd/models" 2>/dev/null)" ]; then
+            echo "Separating qmd models into standalone tarball (GitHub 2GB asset limit)..."
+            mkdir -p _qmd_models_tmp
+            mv "$BUNDLE/lib/qmd/models" _qmd_models_tmp/
+            # Place a placeholder so qmd knows where to put models later
+            mkdir -p "$BUNDLE/lib/qmd/models"
+            tar czf "qmd-models-${DATESTAMP}.tar.gz" -C _qmd_models_tmp models/
+            echo "  qmd-models size: $(du -sh "qmd-models-${DATESTAMP}.tar.gz" | cut -f1)"
+          fi
+
           tar czf "${BUNDLE}.tar.gz" "$BUNDLE/"
-          sha256sum "${BUNDLE}.tar.gz" > SHA256SUMS
+          echo "  bundle size: $(du -sh "${BUNDLE}.tar.gz" | cut -f1)"
+
+          CHECKSUM_TARGETS=("${BUNDLE}.tar.gz")
+          [ -f "qmd-models-${DATESTAMP}.tar.gz" ] && CHECKSUM_TARGETS+=("qmd-models-${DATESTAMP}.tar.gz")
+          sha256sum "${CHECKSUM_TARGETS[@]}" > SHA256SUMS
 
       - name: Build summary
         run: |
@@ -211,6 +228,7 @@ jobs:
           name: aitool_standalone-bundle
           path: |
             aitool_standalone-*.tar.gz
+            qmd-models-*.tar.gz
             SHA256SUMS
           retention-days: 90
 
@@ -237,9 +255,12 @@ jobs:
           echo "Build date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$NOTES"
 
           gh release delete "$TAG" --yes 2>/dev/null || true
+
+          RELEASE_ASSETS=("aitool_standalone-${DATESTAMP}.tar.gz" "SHA256SUMS")
+          [ -f "qmd-models-${DATESTAMP}.tar.gz" ] && RELEASE_ASSETS+=("qmd-models-${DATESTAMP}.tar.gz")
+
           gh release create "$TAG" \
-            "aitool_standalone-${DATESTAMP}.tar.gz" \
-            SHA256SUMS \
+            "${RELEASE_ASSETS[@]}" \
             --title "Bundle ${DATESTAMP}" \
             --notes-file "$NOTES" \
             --repo "${{ github.repository }}"
