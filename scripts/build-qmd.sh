@@ -70,9 +70,31 @@ echo "  EMBED:    ${EMBED_URI}"
 echo "  GENERATE: ${GENERATE_URI}"
 echo "  RERANK:   ${RERANK_URI}"
 
-# Models are not bundled — too large for GitHub's 2 GB asset limit.
-# Create an empty placeholder directory; users place .gguf files here manually.
+# Download GGUF models via huggingface_hub (handles HF XET storage correctly).
+# HF_HUB_DISABLE_XET=1 forces standard CDN, bypassing cas-bridge.xethub.hf.co.
+/usr/bin/python3.11 -m ensurepip --upgrade 2>/dev/null || true
+/usr/bin/python3.11 -m pip install -q huggingface_hub
+export HF_HUB_DISABLE_XET=1
 mkdir -p models
+
+cat > /tmp/hf_download.py << 'PYEOF'
+import sys
+from huggingface_hub import hf_hub_download
+path = sys.argv[1]          # user/repo/filename
+parts = path.split('/', 2)
+hf_hub_download(parts[0]+'/'+parts[1], parts[2], local_dir='models')
+PYEOF
+
+for uri in "${EMBED_URI}" "${GENERATE_URI}" "${RERANK_URI}"; do
+  [ -z "$uri" ] && echo "WARNING: empty model URI, skipping" && continue
+  filename="${uri##*/}"
+  if [ ! -f "models/${filename}" ]; then
+    echo "Downloading ${filename}..."
+    /usr/bin/python3.11 /tmp/hf_download.py "${uri#hf:}"
+  else
+    echo "Already cached: ${filename}"
+  fi
+done
 
 EMBED_FILENAME="${EMBED_URI##*/}"
 GENERATE_FILENAME="${GENERATE_URI##*/}"
@@ -109,17 +131,29 @@ VERSION_TAG=$( build/.node/bin/node \
 echo "Bundling qmd-standalone-${VERSION_TAG}..."
 rm -rf dist && mkdir dist
 
-# Record model URIs for release notes (hf: URIs → download links)
-{
-  [ -n "$EMBED_URI" ]    && echo "EMBED_URI=${EMBED_URI}"    || true
-  [ -n "$GENERATE_URI" ] && echo "GENERATE_URI=${GENERATE_URI}" || true
-  [ -n "$RERANK_URI" ]   && echo "RERANK_URI=${RERANK_URI}"   || true
-} > dist/QMD_MODELS.txt
-
 pushd build
-tar czf "../dist/qmd-standalone-${VERSION_TAG}-x86_64-linux.tar.gz" .
+# Code-only tarball — models/ excluded (packaged separately below)
+tar czf "../dist/qmd-standalone-${VERSION_TAG}-x86_64-linux.tar.gz" \
+  --exclude='./models' .
+
+# Models tarball → split into ≤1.8 GB parts for GitHub release asset limit
+echo "Archiving models..."
+tar czf "../dist/qmd-models-${VERSION_TAG}.tar.gz" -C . models/
 popd
-sha256sum dist/*.tar.gz > dist/SHA256SUMS
+
+echo "Splitting model archive into ≤1.8 GB parts..."
+split -b 1800m \
+  "dist/qmd-models-${VERSION_TAG}.tar.gz" \
+  "dist/qmd-models-${VERSION_TAG}.tar.gz.part-"
+echo "  Parts created:"
+ls -lh dist/qmd-models-*.part-*
+
+# sha256: code tarball + full model archive (for post-reassembly check) + each part
+sha256sum "dist/qmd-standalone-${VERSION_TAG}-x86_64-linux.tar.gz" \
+          "dist/qmd-models-${VERSION_TAG}.tar.gz" \
+          dist/qmd-models-"${VERSION_TAG}".tar.gz.part-* \
+  > dist/SHA256SUMS
+rm "dist/qmd-models-${VERSION_TAG}.tar.gz"  # remove unsplit original
 QMD_REPO=$(curl -sL "https://registry.npmjs.org/@tobilu/qmd/${VERSION_TAG}" \
   | jq -r '.repository.url // ""' \
   | sed 's|.*github\.com/||;s|\.git$||')

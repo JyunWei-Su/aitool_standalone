@@ -237,29 +237,35 @@ jobs:
           echo "" >> "$NOTES"
           echo "Build date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$NOTES"
 
-          # Append qmd model download instructions if available
-          QMD_MODELS_FILE=$(find all-packages/ -name "QMD_MODELS.txt" 2>/dev/null | head -1)
-          if [ -f "$QMD_MODELS_FILE" ]; then
-            echo "" >> "$NOTES"
-            echo "## qmd 模型（需手動下載）" >> "$NOTES"
-            echo "" >> "$NOTES"
-            echo "解壓 bundle 後，將以下 \`.gguf\` 模型下載並放入 \`lib/qmd/models/\`：" >> "$NOTES"
-            echo "" >> "$NOTES"
-            while IFS='=' read -r key val; do
-              [ -z "$val" ] && continue
-              path_part="${val#hf:}"
-              user_repo=$(echo "$path_part" | cut -d'/' -f1-2)
-              filename_path=$(echo "$path_part" | cut -d'/' -f3-)
-              filename=$(basename "$filename_path")
-              url="https://huggingface.co/${user_repo}/resolve/main/${filename_path}"
-              echo "- [\`${filename}\`](${url})" >> "$NOTES"
-            done < "$QMD_MODELS_FILE"
+          # Collect qmd model parts (each ≤1.8 GB, within GitHub asset limit)
+          RELEASE_ASSETS=("aitool_standalone-${DATESTAMP}.tar.gz" "SHA256SUMS")
+          MODEL_PARTS=()
+          while IFS= read -r part; do
+            MODEL_PARTS+=("$part")
+            RELEASE_ASSETS+=("$part")
+            # Append part hash (filename only) to the release SHA256SUMS
+            sha256sum "$part" | sed 's|.*/||' >> SHA256SUMS
+          done < <(find all-packages/ -name "qmd-models-*.part-*" | sort)
+
+          # Append reassembly instructions if model parts exist
+          if [ ${#MODEL_PARTS[@]} -gt 0 ]; then
+            cat >> "$NOTES" << 'MDEOF'
+
+## qmd 模型（離線 GGUF，需手動安裝）
+
+下載所有 `qmd-models-*.part-*` 檔案後，在解壓的 bundle 目錄執行：
+
+```bash
+cat qmd-models-*.part-* > qmd-models.tar.gz
+tar xzf qmd-models.tar.gz -C lib/qmd/
+rm qmd-models.tar.gz
+```
+MDEOF
           fi
 
           gh release delete "$TAG" --yes 2>/dev/null || true
           gh release create "$TAG" \
-            "aitool_standalone-${DATESTAMP}.tar.gz" \
-            SHA256SUMS \
+            "${RELEASE_ASSETS[@]}" \
             --title "Bundle ${DATESTAMP}" \
             --notes-file "$NOTES" \
             --repo "${{ github.repository }}"
