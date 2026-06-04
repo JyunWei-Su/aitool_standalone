@@ -249,18 +249,16 @@ jobs:
 
           # Append reassembly instructions if model parts exist
           if [ ${#MODEL_PARTS[@]} -gt 0 ]; then
-            cat >> "$NOTES" << 'MDEOF'
-
-## qmd 模型（離線 GGUF，需手動安裝）
-
-下載所有 `qmd-models-*.part-*` 檔案後，在解壓的 bundle 目錄執行：
-
-```bash
-cat qmd-models-*.part-* > qmd-models.tar.gz
-tar xzf qmd-models.tar.gz -C lib/qmd/
-rm qmd-models.tar.gz
-```
-MDEOF
+            {
+              echo ""
+              echo "## qmd 模型（離線 GGUF，需手動安裝）"
+              echo ""
+              echo "下載所有 \`qmd-models-*.part-*\` 檔案後，在解壓的 bundle 目錄執行："
+              echo ""
+              echo "    cat qmd-models-*.part-* > qmd-models.tar.gz"
+              echo "    tar xzf qmd-models.tar.gz -C lib/qmd/"
+              echo "    rm qmd-models.tar.gz"
+            } >> "$NOTES"
           fi
 
           gh release delete "$TAG" --yes 2>/dev/null || true
