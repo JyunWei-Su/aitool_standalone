@@ -5,7 +5,9 @@ gh_license() {
   local repo="$1"
   local resp text spdx
 
-  resp=$(curl -sL "https://api.github.com/repos/${repo}/license")
+  resp=$(curl -sL \
+    ${GH_TOKEN:+-H "Authorization: Bearer ${GH_TOKEN}"} \
+    "https://api.github.com/repos/${repo}/license")
   text=$(echo "$resp" | jq -r '.content // ""' | tr -d '\n' | base64 -d 2>/dev/null || true)
   spdx=$(echo "$resp" | jq -r '.license.spdx_id // "Unknown"')
 

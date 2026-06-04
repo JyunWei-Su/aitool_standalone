@@ -77,6 +77,7 @@ jobs:
         env:
           ASSET_PATTERN: ${{ matrix.asset_pattern || '' }}
           BUILD_CMD: ${{ matrix.build_cmd || '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           chmod +x scripts/build.sh
           bash scripts/build.sh \
@@ -106,6 +107,8 @@ jobs:
         run: dnf install -y git wget curl tar xz jq findutils sudo gcc gcc-c++ make python3 python3.11 gcc-toolset-12
       - uses: actions/checkout@v6
       - name: Build ${{ matrix.name }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           chmod +x ${{ matrix.script }}
           bash ${{ matrix.script }}

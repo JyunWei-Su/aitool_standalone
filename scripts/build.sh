@@ -9,7 +9,9 @@ TYPE="$3"
 VERSION="${4:-latest}"
 
 if [ "$VERSION" = "latest" ]; then
-  VERSION=$(curl -sL "https://api.github.com/repos/${REPO}/releases/latest" | jq -r .tag_name)
+  VERSION=$(curl -sL \
+    ${GH_TOKEN:+-H "Authorization: Bearer ${GH_TOKEN}"} \
+    "https://api.github.com/repos/${REPO}/releases/latest" | jq -r .tag_name)
   if [ "$VERSION" = "null" ] || [ -z "$VERSION" ]; then
     echo "ERROR: Could not resolve latest version for ${REPO}"
     exit 1
