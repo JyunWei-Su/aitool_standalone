@@ -97,7 +97,7 @@ for uri in "${EMBED_URI}" "${GENERATE_URI}" "${RERANK_URI}"; do
   url=$(hf_to_url "$uri")
   if [ ! -f "models/${filename}" ]; then
     echo "Downloading ${filename}..."
-    wget --progress=bar:force -O "models/${filename}" "${url}"
+    curl -fSL --retry 3 --retry-delay 5 -o "models/${filename}" "${url}"
   else
     echo "Already cached: ${filename}"
   fi
