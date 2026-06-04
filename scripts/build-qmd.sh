@@ -54,34 +54,11 @@ echo "Extracting model defaults from llm.js..."
 cat > /tmp/extract_models.js << 'JSEOF'
 const src = require('fs').readFileSync(
   './node_modules/@tobilu/qmd/dist/llm.js', 'utf8');
-
-// Pre-index all hf: URIs with positions
-const allHf = [];
-const hfRe = /hf:[A-Za-z0-9_.\/\-]+/g;
-let hm;
-while ((hm = hfRe.exec(src)) !== null) allHf.push({ uri: hm[0], pos: hm.index });
-
-// Find the hf: URI nearest to any occurrence of the given names (search both directions)
-function nearest(names, radius) {
-  let best = null, bestDist = Infinity;
-  for (const name of names) {
-    let pos = 0;
-    while (pos < src.length) {
-      const idx = src.indexOf(name, pos);
-      if (idx === -1) break;
-      for (const { uri, pos: hp } of allHf) {
-        const d = Math.abs(hp - idx);
-        if (d < radius && d < bestDist) { bestDist = d; best = uri; }
-      }
-      pos = idx + 1;
-    }
-  }
-  return best || '';
-}
-
-console.log(nearest(['QMD_EMBED_MODEL',    'DEFAULT_EMBED_MODEL'],    1500));
-console.log(nearest(['QMD_GENERATE_MODEL', 'DEFAULT_GENERATE_MODEL'], 1500));
-console.log(nearest(['QMD_RERANK_MODEL',   'DEFAULT_RERANK_MODEL'],   1500));
+const uris = [...new Set(src.match(/hf:[A-Za-z0-9_.\/\-]+/g) || [])];
+const pick = (...kws) => uris.find(u => kws.some(k => u.toLowerCase().includes(k))) || '';
+console.log(pick('embed'));
+console.log(pick('generat', 'expand', 'query-expan'));
+console.log(pick('rerank', 'rank'));
 JSEOF
 
 MODEL_LINES=$(./.node/bin/node /tmp/extract_models.js)
