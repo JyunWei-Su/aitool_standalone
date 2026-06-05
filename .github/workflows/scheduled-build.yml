@@ -131,8 +131,8 @@ jobs:
           path: all-packages/
       - name: Assemble bundle
         run: |
-          DATESTAMP=$(date +%Y%m%d)
-          BUNDLE="aitool_standalone-${DATESTAMP}"
+          DATESTAMP=$(date +%y.%-m.%-d)
+          BUNDLE="aitool-standalone-${DATESTAMP}"
           mkdir -p "$BUNDLE/bin" "$BUNDLE/lib"
 
           for pkg_dir in all-packages/*/; do
@@ -234,9 +234,9 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: aitool_standalone-bundle
+          name: aitool-standalone-bundle
           path: |
-            aitool_standalone-*.tar.gz
+            aitool-standalone-*.tar.gz
             SHA256SUMS
           retention-days: 90
 
@@ -244,8 +244,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          DATESTAMP=$(date +%Y%m%d)
-          TAG="bundle-${DATESTAMP}"
+          DATESTAMP=$(date +%y.%-m.%-d)
+          TAG="${DATESTAMP}"
           NOTES=$(mktemp)
 
           echo "## 本次打包套件" > "$NOTES"
@@ -263,7 +263,7 @@ jobs:
           echo "Build date: $(date -u '+%Y-%m-%d %H:%M UTC')" >> "$NOTES"
 
           # Collect qmd model parts (each ≤1.8 GB, within GitHub asset limit)
-          RELEASE_ASSETS=("aitool_standalone-${DATESTAMP}.tar.gz" "SHA256SUMS")
+          RELEASE_ASSETS=("aitool-standalone-${DATESTAMP}.tar.gz" "SHA256SUMS")
           MODEL_PARTS=()
           while IFS= read -r part; do
             MODEL_PARTS+=("$part")
@@ -289,6 +289,6 @@ jobs:
           gh release delete "$TAG" --yes 2>/dev/null || true
           gh release create "$TAG" \
             "${RELEASE_ASSETS[@]}" \
-            --title "Bundle ${DATESTAMP}" \
+            --title "aitool-standalone ${DATESTAMP}" \
             --notes-file "$NOTES" \
             --repo "${{ github.repository }}"
