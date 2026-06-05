@@ -28,8 +28,25 @@ echo "Downloading ${URL}..."
 wget -q "$URL" -O build/obsidian
 chmod +x build/obsidian
 
+echo "Extracting AppImage..."
+cd build
+./obsidian --appimage-extract
+mv squashfs-root lib_obsidian
+cd ..
+
+cat > build/obsidian-bin << 'EOF'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+exec "$SCRIPT_DIR/lib/obsidian/obsidian" "$@"
+EOF
+chmod +x build/obsidian-bin
+
 echo "Packaging..."
-tar czf "dist/obsidian-standalone-${VERSION}-x86_64-linux.tar.gz" -C build obsidian
+tar czf "dist/obsidian-standalone-${VERSION}-x86_64-linux.tar.gz" \
+  -C build \
+  --transform 's|^obsidian-bin$|obsidian|' \
+  --transform 's|^lib_obsidian|lib/obsidian|' \
+  obsidian-bin lib_obsidian
 
 LICENSE=$(gh_license "obsidianmd/obsidian-releases")
 printf 'name=obsidian\nversion=%s\nlicense=%s\n' "${VERSION}" "${LICENSE}" > dist/BUILD_INFO.txt
