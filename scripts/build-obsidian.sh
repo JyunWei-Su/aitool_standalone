@@ -31,22 +31,22 @@ chmod +x build/obsidian
 echo "Extracting AppImage..."
 cd build
 ./obsidian --appimage-extract
-mv squashfs-root lib_obsidian
+mkdir -p lib
+mv squashfs-root lib/obsidian
 cd ..
 
-cat > build/obsidian-bin << 'EOF'
+cat > build/obsidian-launcher << 'EOF'
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 exec "$SCRIPT_DIR/lib/obsidian/obsidian" "$@"
 EOF
-chmod +x build/obsidian-bin
+chmod +x build/obsidian-launcher
 
 echo "Packaging..."
 tar czf "dist/obsidian-standalone-${VERSION}-x86_64-linux.tar.gz" \
   -C build \
-  --transform 's|^obsidian-bin$|obsidian|' \
-  --transform 's|^lib_obsidian|lib/obsidian|' \
-  obsidian-bin lib_obsidian
+  --transform 's|^obsidian-launcher$|obsidian|' \
+  obsidian-launcher lib/obsidian
 
 LICENSE=$(gh_license "obsidianmd/obsidian-releases")
 printf 'name=obsidian\nversion=%s\nlicense=%s\n' "${VERSION}" "${LICENSE}" > dist/BUILD_INFO.txt
