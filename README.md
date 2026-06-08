@@ -14,6 +14,7 @@ GitHub Actions 自動打包離線工具集。本地不需要任何 `npm install`
 | [playwright](https://github.com/microsoft/playwright) | 含瀏覽器的獨立 Playwright 執行環境 | custom |
 | [npx](https://github.com/nodejs/node) | npx wrapper，依附 bundle 內的 Node.js runtime | custom |
 | [obsidian](https://github.com/obsidianmd/obsidian-releases) | 知識管理筆記軟體，Linux AppImage | custom |
+| [mdbook](https://github.com/rust-lang/mdBook) | 將 Markdown 轉換成電子書的工具，musl 靜態二進位 | binary |
 
 ## 使用方式
 
@@ -28,6 +29,26 @@ Scheduled workflow 會自動建置所有套件，並將成品上傳為 GitHub Ac
 - `bash` / `sh`：在 bundle 根目錄執行 `source setup.sh`
 - `csh` / `tcsh`：優先先 `cd` 到 bundle 根目錄再執行 `source setup.csh`
 - 若要從其他目錄 `source`，先設定 `AITOOL_BUNDLE_DIR=/path/to/bundle`
+
+### bundle 內部結構
+
+- `bin/<套件>`：薄 wrapper script，記錄使用量後 `exec` 到 `lib/<套件>/<套件>`
+- `lib/<套件>/`：各套件實際成品（執行檔、runtime、模型等）
+- `usage/<套件>.log`：使用量統計紀錄（見下）
+- `LICENSE.md`：各套件版本與授權彙總表，供內部稽核使用
+
+### 使用量統計（usage/）
+
+每次透過 `bin/` 執行任一工具，wrapper 都會 append 一行到 `usage/<套件>.log`：
+
+    <UTC ISO8601 時間戳記>\t<版本號>
+
+例如：
+
+    2026-06-08T03:21:07Z	14.1.0
+
+每行代表一次呼叫，**行數即為使用次數**，可藉此統計各工具的使用頻率、版本分佈、最後使用時間等。
+紀錄為 best-effort（檔案系統唯讀等情況會靜默略過），不影響工具本身執行。
 
 ## 新增套件
 

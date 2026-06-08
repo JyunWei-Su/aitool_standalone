@@ -133,29 +133,82 @@ jobs:
         run: |
           DATESTAMP=$(date +%y.%-m.%-d)
           BUNDLE="aitool-standalone-${DATESTAMP}"
-          mkdir -p "$BUNDLE/bin" "$BUNDLE/lib"
+          mkdir -p "$BUNDLE/bin" "$BUNDLE/lib" "$BUNDLE/usage"
+
+          # Sourced by every bin/ wrapper: appends one usage record per
+          # invocation ("<UTC ISO8601 timestamp>\t<version>") to
+          # usage/<tool>.log — line count doubles as the invocation count.
+          # Best-effort: never fails the wrapper (e.g. read-only filesystem).
+          cat > "$BUNDLE/lib/_usage.sh" <<'USAGE_LIB'
+          #!/bin/bash
+          log_usage() {
+            local name="$1" version="$2"
+            local dir="$BUNDLE_DIR/usage"
+            { mkdir -p "$dir" && printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$version" >> "$dir/$name.log"; } 2>/dev/null || true
+          }
+          USAGE_LIB
+
+          # Writes bin/<name>: a thin wrapper that logs usage, then execs the
+          # real entry point at lib/<name>/<name>. Shared by binary and custom
+          # packages so every bin/ entry is a wrapper, not a raw executable.
+          write_wrapper() {
+            local pkg_name="$1" version="$2"
+            cat > "$BUNDLE/bin/$pkg_name" <<WRAPPER
+          #!/bin/bash
+          SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
+          BUNDLE_DIR="\$(cd "\$SCRIPT_DIR/.." && pwd)"
+          . "\$BUNDLE_DIR/lib/_usage.sh"
+          log_usage "$pkg_name" "$version"
+          exec "\$BUNDLE_DIR/lib/$pkg_name/$pkg_name" "\$@"
+          WRAPPER
+            chmod +x "$BUNDLE/bin/$pkg_name"
+          }
 
           for pkg_dir in all-packages/*/; do
             artifact=$(basename "$pkg_dir")
 
+            info="${pkg_dir}BUILD_INFO.txt"
+            version="unknown"
+            if [ -f "$info" ]; then
+              version="$(grep -m1 '^version=' "$info" | cut -d= -f2 || true)"
+              [ -n "$version" ] || version="unknown"
+            fi
+
             if [[ "$artifact" == *"-standalone-x86_64-linux" ]]; then
-              # Custom package: extract tarball into lib/<name>/
+              # Custom package: extract tarball into lib/<name>/, then wrap its entry point
               pkg_name="${artifact%%-standalone-x86_64-linux}"
               tarball=$(find "$pkg_dir" -maxdepth 1 -name "*.tar.gz" | head -1)
               mkdir -p "$BUNDLE/lib/$pkg_name"
               tar xzf "$tarball" -C "$BUNDLE/lib/$pkg_name"
-              # Wrapper in bin/ that delegates to the real wrapper
-              printf '#!/bin/bash\nSCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"\nexec "$SCRIPT_DIR/../lib/%s/%s" "$@"\n' \
-                "$pkg_name" "$pkg_name" > "$BUNDLE/bin/$pkg_name"
-              chmod +x "$BUNDLE/bin/$pkg_name"
+              write_wrapper "$pkg_name" "$version"
 
             elif [[ "$artifact" == *"-x86_64-linux" ]]; then
-              # Binary package: single executable
+              # Binary package: move the executable into lib/<name>/, then wrap it like custom packages
               pkg_name="${artifact%%-x86_64-linux}"
               binary=$(find "$pkg_dir" -maxdepth 1 -type f ! -name "*.txt" ! -name "SHA256SUMS" | head -1)
-              [ -n "$binary" ] && cp "$binary" "$BUNDLE/bin/$pkg_name" && chmod +x "$BUNDLE/bin/$pkg_name"
+              if [ -n "$binary" ]; then
+                mkdir -p "$BUNDLE/lib/$pkg_name"
+                cp "$binary" "$BUNDLE/lib/$pkg_name/$pkg_name"
+                chmod +x "$BUNDLE/lib/$pkg_name/$pkg_name"
+                write_wrapper "$pkg_name" "$version"
+              fi
             fi
           done
+
+          # LICENSE.md：彙整各套件版本與授權資訊，供內部稽核使用
+          {
+            echo "# 套件授權與版本資訊"
+            echo ""
+            echo "| 套件 | 版本 | License |"
+            echo "|------|------|---------|"
+            for info in all-packages/*/BUILD_INFO.txt; do
+              [ -f "$info" ] || continue
+              name=$(grep '^name=' "$info" | cut -d= -f2)
+              version=$(grep '^version=' "$info" | cut -d= -f2)
+              license=$(grep '^license=' "$info" | cut -d= -f2)
+              echo "| \`${name}\` | \`${version}\` | ${license:-Unknown} |"
+            done
+          } > "$BUNDLE/LICENSE.md"
 
           # Convenience script: source once to add bin/ to PATH
           {

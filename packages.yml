@@ -41,3 +41,9 @@ packages:
   - name: obsidian
     type: custom
     script: scripts/build-obsidian.sh
+
+  # ── mdBook（二進位）─────────────────────────────────
+  - name: mdbook
+    type: binary
+    repo: rust-lang/mdBook
+    asset_pattern: mdbook-{VERSION}-x86_64-unknown-linux-musl.tar.gz
