@@ -47,3 +47,8 @@ packages:
     type: binary
     repo: rust-lang/mdBook
     asset_pattern: mdbook-{VERSION}-x86_64-unknown-linux-musl.tar.gz
+
+  # ── Neovim（自訂腳本，原始碼建置避免 GLIBC 版本問題）──
+  - name: nvim
+    type: custom
+    script: scripts/build-nvim.sh
