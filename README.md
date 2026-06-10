@@ -1,4 +1,4 @@
-# aitool_standalone
+# aitool-standalone
 
 GitHub Actions 自動打包離線工具集。本地不需要任何 `npm install` / 環境設定，所有建置都在 CI 上完成。
 
@@ -29,7 +29,7 @@ Scheduled workflow 會自動建置所有套件，並將成品上傳為 GitHub Ac
 
 ### 套件 bundle 使用方式
 
-解壓縮 `aitool_standalone-<YYYYMMDD>.tar.gz` 後：
+解壓縮 `aitool-standalone-<YYYYMMDD>.tar.gz` 後：
 
 - `bash` / `sh`：在 bundle 根目錄執行 `source setup.sh`
 - `csh` / `tcsh`：優先先 `cd` 到 bundle 根目錄再執行 `source setup.csh`
@@ -106,7 +106,7 @@ packages:
 ## 專案結構
 
 ```
-aitool_standalone/
+aitool-standalone/
 ├── packages.yml                    # 套件定義
 ├── scripts/
 │   ├── build-node.sh               # Node.js 自訂建置
@@ -123,7 +123,7 @@ aitool_standalone/
 每次建置後可在 Actions run 頁面下載：
 
 - `<name>-standalone-x86_64-linux` — 各套件獨立成品
-- `aitool_standalone-bundle-<YYYYMMDD>.tar.gz` — 全套件合併包（僅 scheduled build）
+- `aitool-standalone-bundle-<YYYYMMDD>.tar.gz` — 全套件合併包（僅 scheduled build）
 
 bundle 內同時提供 `setup.sh` 與 `setup.csh`，分別給 `bash` / `sh` 與 `csh` / `tcsh` 使用。
 `setup.csh` 會優先使用目前目錄，若不在 bundle 根目錄，請先設定 `AITOOL_BUNDLE_DIR`。

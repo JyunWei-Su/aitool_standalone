@@ -1,4 +1,4 @@
-# AGENT.md — aitool_standalone
+# AGENT.md — aitool-standalone
 
 本文件供 AI agent（Claude Code 等）在此 repo 工作時參考。
 
