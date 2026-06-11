@@ -213,6 +213,36 @@ jobs:
             fi
           done
 
+          # nvim: if both the OL8 (glibc >= 2.28) and OL7/CentOS7 (glibc 2.17)
+          # builds are present, replace bin/nvim with a dispatcher that picks
+          # the right one based on the host's glibc version. bin/nvim-centos7
+          # is left in place as an explicit override.
+          if [ -d "$BUNDLE/lib/nvim" ] && [ -d "$BUNDLE/lib/nvim-centos7" ]; then
+            version_nvim=$(grep -m1 '^version=' all-packages/nvim-standalone-x86_64-linux/BUILD_INFO.txt 2>/dev/null | cut -d= -f2)
+            version_nvim_centos7=$(grep -m1 '^version=' all-packages/nvim-centos7-standalone-x86_64-linux/BUILD_INFO.txt 2>/dev/null | cut -d= -f2)
+
+            cat > "$BUNDLE/bin/nvim" <<'WRAPPER'
+          #!/bin/bash
+          SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+          BUNDLE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+          . "$BUNDLE_DIR/lib/_usage.sh"
+
+          glibc_ver=$(ldd --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+$')
+          glibc_major=${glibc_ver%%.*}
+          glibc_minor=${glibc_ver##*.}
+
+          if [ -n "$glibc_major" ] && { [ "$glibc_major" -gt 2 ] || { [ "$glibc_major" -eq 2 ] && [ "$glibc_minor" -ge 28 ]; }; }; then
+            log_usage nvim "__VERSION_NVIM__"
+            exec "$BUNDLE_DIR/lib/nvim/nvim" "$@"
+          else
+            log_usage nvim-centos7 "__VERSION_NVIM_CENTOS7__"
+            exec "$BUNDLE_DIR/lib/nvim-centos7/nvim-centos7" "$@"
+          fi
+          WRAPPER
+            sed -i "s/__VERSION_NVIM__/${version_nvim:-unknown}/; s/__VERSION_NVIM_CENTOS7__/${version_nvim_centos7:-unknown}/" "$BUNDLE/bin/nvim"
+            chmod +x "$BUNDLE/bin/nvim"
+          fi
+
           # LICENSE.md：彙整各套件版本與授權資訊，供內部稽核使用
           {
             echo "# 套件授權與版本資訊"

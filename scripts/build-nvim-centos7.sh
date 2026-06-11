@@ -33,7 +33,7 @@ enabled=1
 REPOEOF
 
 yum install -y git wget curl tar xz jq findutils sudo which \
-  gettext libtool autoconf automake pkgconfig unzip patch \
+  gettext libtool autoconf automake pkgconfig unzip patch ncurses \
   devtoolset-11-gcc devtoolset-11-gcc-c++ devtoolset-11-make cmake3
 
 # yum silently skips packages it cannot find instead of failing the
@@ -86,12 +86,33 @@ mkdir -p build/pkg/bin build/pkg/share/nvim
 cp build/dist-install/bin/nvim build/pkg/bin/nvim
 cp -r build/dist-install/share/nvim/runtime build/pkg/share/nvim/runtime
 
+# OL7's ncurses (5.9, ~2011) terminfo lacks the "Ms" (OSC 52 clipboard)
+# capability. Without it, Neovim queries the terminal directly on startup via
+# an XTGETTCAP escape sequence (DCS "+q4D73" ... ST); terminals/multiplexers
+# that don't consume that sequence echo it back as garbage. Patch the common
+# xterm/screen/tmux terminfo entries with "Ms" so Neovim skips the query.
+echo "Patching terminfo with Ms (OSC52 clipboard) capability..."
+mkdir -p build/pkg/share/terminfo
+cat > /tmp/cap-ms.txt << 'EOF'
+	Ms=\E]52;%p1%s;%p2%s\007,
+EOF
+for term in xterm xterm-256color screen screen-256color tmux tmux-256color; do
+  if infocmp "$term" > /tmp/ti-src 2>/dev/null; then
+    cp /tmp/ti-src /tmp/ti-src.new
+    grep -q 'Ms=' /tmp/ti-src.new || sed -i '1r /tmp/cap-ms.txt' /tmp/ti-src.new
+    tic -x -o build/pkg/share/terminfo /tmp/ti-src.new
+  else
+    echo "  skip ${term}: not in base terminfo"
+  fi
+done
+
 # Top-level entry point: bundler runs lib/nvim-centos7/nvim-centos7 directly.
 # Keep it as a thin wrapper around bin/nvim so the bin/../share/nvim/runtime
 # layout that Neovim auto-detects for its runtime files stays intact.
 cat > build/pkg/nvim-centos7 << 'WRAPPER'
 #!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+export TERMINFO_DIRS="$SCRIPT_DIR/share/terminfo:"
 exec "$SCRIPT_DIR/bin/nvim" "$@"
 WRAPPER
 chmod +x build/pkg/nvim-centos7 build/pkg/bin/nvim
