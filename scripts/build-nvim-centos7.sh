@@ -98,7 +98,10 @@ cat > /tmp/cap-ms.txt << 'EOF'
 EOF
 for term in xterm xterm-256color screen screen-256color tmux tmux-256color; do
   if infocmp "$term" > /tmp/ti-src 2>/dev/null; then
-    cp /tmp/ti-src /tmp/ti-src.new
+    # infocmp prefixes output with a "# Reconstructed via infocmp..." comment
+    # line for entries with extended capabilities; strip it so line 1 is the
+    # actual "name|name|description," header that tic requires.
+    grep -v '^#' /tmp/ti-src > /tmp/ti-src.new
     grep -q 'Ms=' /tmp/ti-src.new || sed -i '1r /tmp/cap-ms.txt' /tmp/ti-src.new
     tic -x -o build/pkg/share/terminfo /tmp/ti-src.new
   else
