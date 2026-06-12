@@ -17,7 +17,7 @@ gpgkey=https://yum.oracle.com/RPM-GPG-KEY-oracle-ol7
 enabled=1
 REPOEOF
 
-yum install -y git wget curl tar gzip xz jq findutils gcc make pkgconfig bison gawk
+yum install -y git wget curl tar gzip xz jq findutils gcc make pkgconfig bison gawk ncurses
 
 # shellcheck source=scripts/lib-license.sh
 source "$(dirname "$0")/lib-license.sh"
@@ -127,18 +127,48 @@ tar xzf build/tmux.tar.gz -C build
   && make install )
 
 echo "Packaging..."
-mkdir -p build/pkg
-cp "build/tmux-${TMUX_VERSION}/dist-install/bin/tmux" build/pkg/tmux-centos7
-chmod +x build/pkg/tmux-centos7
+mkdir -p build/pkg/bin
+cp "build/tmux-${TMUX_VERSION}/dist-install/bin/tmux" build/pkg/bin/tmux
+chmod +x build/pkg/bin/tmux
 
 # Confirm libevent/ncurses were statically linked (no .so dependency on
 # them), and that the binary actually runs in this glibc 2.17 environment.
 echo "Checking linked libraries..."
-ldd build/pkg/tmux-centos7
-if ldd build/pkg/tmux-centos7 | grep -qiE 'libevent|libncurses|libtinfo'; then
-  echo "ERROR: tmux-centos7 is dynamically linked against libevent/ncurses" >&2
+ldd build/pkg/bin/tmux
+if ldd build/pkg/bin/tmux | grep -qiE 'libevent|libncurses|libtinfo'; then
+  echo "ERROR: tmux is dynamically linked against libevent/ncurses" >&2
   exit 1
 fi
+
+# tmux needs a terminfo database at runtime (for the outer terminal's $TERM
+# and for the "screen"/"tmux-256color" entries it uses for panes), but the
+# static ncurses build above doesn't install its own database (see comment
+# near run_tic.sh) and the target host may not have ncurses/terminfo
+# installed at all. Bundle a small terminfo database for common terminal
+# types, compiled from this container's base ncurses (yum package) via
+# infocmp+tic, same approach as nvim-centos7.
+echo "Building bundled terminfo database..."
+mkdir -p build/pkg/share/terminfo
+for term in xterm xterm-256color screen screen-256color tmux tmux-256color; do
+  if infocmp "$term" > /tmp/ti-src 2>/dev/null; then
+    grep -v '^#' /tmp/ti-src > /tmp/ti-src.new
+    tic -x -o build/pkg/share/terminfo /tmp/ti-src.new
+  else
+    echo "  skip ${term}: not in base terminfo"
+  fi
+done
+
+# Top-level entry point: thin wrapper around bin/tmux that points
+# TERMINFO_DIRS at the bundled database above. The trailing ':' keeps
+# ncurses' compiled-in default search path (e.g. the host's own
+# /usr/share/terminfo) as a fallback.
+cat > build/pkg/tmux-centos7 << 'WRAPPER'
+#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+export TERMINFO_DIRS="$SCRIPT_DIR/share/terminfo:"
+exec "$SCRIPT_DIR/bin/tmux" "$@"
+WRAPPER
+chmod +x build/pkg/tmux-centos7
 
 echo "Verifying built binary runs..."
 build/pkg/tmux-centos7 -V
