@@ -71,13 +71,18 @@ tar xzf build/libevent.tar.gz -C build
 # $STAGE/include and $STAGE/lib (no ncursesw/ subdir), keeping the tmux
 # configure flags simple.
 #
+# --with-fallbacks compiles a handful of common terminfo entries directly
+# into libncursesw.a (via infocmp/tic from the yum-installed `ncurses`
+# package), used as a last resort if the target host has no terminfo
+# database at all. This keeps tmux-centos7 a true single-file binary with
+# no bundled share/terminfo or wrapper script.
+#
 # `make install` also compiles+installs ncurses' own terminfo database into
 # $STAGE/share/terminfo via misc/run_tic.sh, but ncurses 6.6's terminfo.src
 # has a 'scrt' entry that overflows tic's legacy entry-size limit and aborts
 # the install. We don't need that database here: tmux only needs the static
-# libs/headers/pkg-config files, and the target CentOS 7 host already has its
-# own terminfo database at runtime. Replace run_tic.sh with a no-op so
-# `make install` skips that step.
+# libs/headers/pkg-config files (plus the fallback entries baked in above).
+# Replace run_tic.sh with a no-op so `make install` skips that step.
 # ---------------------------------------------------------------------------
 echo "Building ncurses ${NCURSES_VERSION} (static)..."
 NCURSES_URL="https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz"
@@ -89,6 +94,7 @@ tar xzf build/ncurses.tar.gz -C build
        --without-manpages --without-tests --without-progs \
        --enable-widec --enable-overwrite \
        --enable-pc-files --with-pkg-config-libdir="$STAGE/lib/pkgconfig" \
+       --with-fallbacks=screen,screen-256color,xterm,xterm-256color,vt100 \
   && make -j"$(nproc)" \
   && printf '#!/bin/sh\nexit 0\n' > misc/run_tic.sh \
   && make install )
@@ -127,48 +133,18 @@ tar xzf build/tmux.tar.gz -C build
   && make install )
 
 echo "Packaging..."
-mkdir -p build/pkg/bin
-cp "build/tmux-${TMUX_VERSION}/dist-install/bin/tmux" build/pkg/bin/tmux
-chmod +x build/pkg/bin/tmux
+mkdir -p build/pkg
+cp "build/tmux-${TMUX_VERSION}/dist-install/bin/tmux" build/pkg/tmux-centos7
+chmod +x build/pkg/tmux-centos7
 
 # Confirm libevent/ncurses were statically linked (no .so dependency on
 # them), and that the binary actually runs in this glibc 2.17 environment.
 echo "Checking linked libraries..."
-ldd build/pkg/bin/tmux
-if ldd build/pkg/bin/tmux | grep -qiE 'libevent|libncurses|libtinfo'; then
-  echo "ERROR: tmux is dynamically linked against libevent/ncurses" >&2
+ldd build/pkg/tmux-centos7
+if ldd build/pkg/tmux-centos7 | grep -qiE 'libevent|libncurses|libtinfo'; then
+  echo "ERROR: tmux-centos7 is dynamically linked against libevent/ncurses" >&2
   exit 1
 fi
-
-# tmux needs a terminfo database at runtime (for the outer terminal's $TERM
-# and for the "screen"/"tmux-256color" entries it uses for panes), but the
-# static ncurses build above doesn't install its own database (see comment
-# near run_tic.sh) and the target host may not have ncurses/terminfo
-# installed at all. Bundle a small terminfo database for common terminal
-# types, compiled from this container's base ncurses (yum package) via
-# infocmp+tic, same approach as nvim-centos7.
-echo "Building bundled terminfo database..."
-mkdir -p build/pkg/share/terminfo
-for term in xterm xterm-256color screen screen-256color tmux tmux-256color; do
-  if infocmp "$term" > /tmp/ti-src 2>/dev/null; then
-    grep -v '^#' /tmp/ti-src > /tmp/ti-src.new
-    tic -x -o build/pkg/share/terminfo /tmp/ti-src.new
-  else
-    echo "  skip ${term}: not in base terminfo"
-  fi
-done
-
-# Top-level entry point: thin wrapper around bin/tmux that points
-# TERMINFO_DIRS at the bundled database above. The trailing ':' keeps
-# ncurses' compiled-in default search path (e.g. the host's own
-# /usr/share/terminfo) as a fallback.
-cat > build/pkg/tmux-centos7 << 'WRAPPER'
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-export TERMINFO_DIRS="$SCRIPT_DIR/share/terminfo:"
-exec "$SCRIPT_DIR/bin/tmux" "$@"
-WRAPPER
-chmod +x build/pkg/tmux-centos7
 
 echo "Verifying built binary runs..."
 build/pkg/tmux-centos7 -V
